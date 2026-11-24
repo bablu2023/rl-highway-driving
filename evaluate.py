@@ -5,6 +5,7 @@
     python evaluate.py --no-video
 """
 import argparse
+import json
 import os
 
 import src  # noqa: F401
@@ -46,8 +47,16 @@ def main():
     p.add_argument("--no-video", action="store_true")
     args = p.parse_args()
 
+    # Use the same environment settings the agent was trained with (saved by train.py)
+    config = None
+    cfg_path = os.path.join(os.path.dirname(args.model) or ".", "env_config.json")
+    if os.path.exists(cfg_path):
+        with open(cfg_path) as f:
+            config = json.load(f).get("config") or None
+    print("Environment config:", config or "default")
+
     record = 0 if args.no_video else args.video_episodes
-    env = make_env(args.env, render_mode="rgb_array" if record else None)
+    env = make_env(args.env, render_mode="rgb_array" if record else None, config=config)
 
     if args.random:
         label = "Random driver"

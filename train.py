@@ -2,8 +2,10 @@
 
     python train.py                  # default: 20,000 steps on highway-fast-v0
     python train.py --steps 50000    # longer training = better driving
+    python train.py --steps 50000 --gamma 0.95 --collision-reward -3   # safer driving
 """
 import argparse
+import json
 import os
 
 import src  # noqa: F401
@@ -41,12 +43,23 @@ def main():
     p.add_argument("--env", default=DEFAULT_ENV)
     p.add_argument("--steps", type=int, default=20000)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--gamma", type=float, default=0.8,
+                   help="discount factor: higher = cares more about the future (staying alive)")
+    p.add_argument("--collision-reward", type=float, default=None,
+                   help="crash penalty, e.g. -3 (highway-env default is -1)")
     p.add_argument("--out", default="results")
     args = p.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
+    # Optional changes to the environment's reward; saved so evaluate.py uses the same setup
+    config = {}
+    if args.collision_reward is not None:
+        config["collision_reward"] = args.collision_reward
+    with open(os.path.join(args.out, "env_config.json"), "w") as f:
+        json.dump({"env": args.env, "config": config, "gamma": args.gamma}, f, indent=2)
+
     # Monitor records each episode's reward and length to results/train.monitor.csv
-    env = Monitor(make_env(args.env), os.path.join(args.out, "train"))
+    env = Monitor(make_env(args.env, config=config or None), os.path.join(args.out, "train"))
 
     model = DQN(
         "MlpPolicy",                    # a plain fully-connected neural network
@@ -56,7 +69,7 @@ def main():
         buffer_size=15000,              # replay memory size
         learning_starts=200,            # random steps collected before learning
         batch_size=32,
-        gamma=0.8,                      # how much future rewards count (0..1)
+        gamma=args.gamma,               # how much future rewards count (0..1)
         train_freq=1,                   # learn after every step
         gradient_steps=1,
         target_update_interval=50,      # copy the network to the target network every 50 steps
@@ -65,7 +78,8 @@ def main():
         seed=args.seed,
     )
 
-    print(f"Training on {args.env} for {args.steps} steps...")
+    print(f"Training on {args.env} for {args.steps} steps "
+          f"(gamma={args.gamma}, env config={config or 'default'})...")
     model.learn(total_timesteps=args.steps)
 
     model_path = os.path.join(args.out, "dqn_highway")
