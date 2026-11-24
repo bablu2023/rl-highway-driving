@@ -7,7 +7,7 @@
 import argparse
 import os
 
-import src  # noqa: F401  (sets up headless rendering before pygame loads)
+import src  # noqa: F401
 
 import numpy as np
 
