@@ -1,0 +1,8 @@
+highway-env>=1.10
+gymnasium>=1.0
+stable-baselines3>=2.3
+torch
+numpy
+pandas
+matplotlib
+imageio[ffmpeg]
