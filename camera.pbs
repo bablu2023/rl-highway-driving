@@ -1,0 +1,41 @@
+#!/bin/bash
+#PBS -N rl_camera
+#PBS -l select=1:ncpus=2:ngpus=1:mem=16gb
+#PBS -l walltime=24:00:00
+#PBS -j oe
+#PBS -q workq
+
+# Train + evaluate the camera-based (CNN) DQN driver on a PBS compute node.
+# Submit from the repo folder:   qsub -v STEPS=100000,GPU=MIG-<uuid> camera.pbs   (GPU is optional; list slices with: nvidia-smi -L)
+# Re-test an existing run without training:   qsub -v STEPS=100000,EVAL_ONLY=1 camera.pbs
+# Live log: logs/results_camera_<STEPS>[_<TAG>].log  (PBS also writes rl_camera.o<jobid>)
+
+cd "$PBS_O_WORKDIR"                       # the folder you ran qsub from
+STEPS=${STEPS:-100000}                    # training steps (set with: qsub -v STEPS=...)
+TAG=${TAG:-}                              # optional run name, e.g. qsub -v STEPS=200000,TAG=v2
+OUT=results_camera_${STEPS}${TAG:+_$TAG}
+mkdir -p logs
+LOG="logs/$(basename "$OUT")${EVAL_ONLY:+_eval}.log"
+exec > "$LOG" 2>&1                        # live log, e.g. logs/results_camera_200000_v2.log
+
+source /apps/compilers/anaconda3/etc/profile.d/conda.sh
+conda activate rl
+export OMP_NUM_THREADS=${NCPUS:-2}        # use only the CPU cores PBS gave us
+if [ -n "$GPU" ]; then                    # optional: pick a GPU/MIG slice, e.g. qsub -v STEPS=...,GPU=MIG-...
+    export CUDA_VISIBLE_DEVICES="$GPU"
+fi
+
+echo "Job ${PBS_JOBID} on $(hostname) | STEPS=${STEPS} | CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-not set}"
+nvidia-smi -L
+python -c "import torch; print('torch sees GPU:', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
+
+if [ "${EVAL_ONLY:-0}" != "1" ]; then          # EVAL_ONLY=1: skip training, just re-test existing models
+    python train.py --obs camera --steps "$STEPS" --gamma 0.95 --collision-reward -3 --out "$OUT"
+fi
+echo "=== FINAL model (end of training) ==="
+python evaluate.py --model "$OUT/dqn_highway.zip" --episodes 20 --video "$OUT/agent.mp4"
+if [ -f "$OUT/best_model.zip" ]; then
+    echo "=== BEST model (highest test reward during training) ==="
+    python evaluate.py --model "$OUT/best_model.zip" --episodes 20 --video "$OUT/best_agent.mp4"
+fi
+echo "Job finished: $(date)"

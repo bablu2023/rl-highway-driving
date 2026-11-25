@@ -4,3 +4,7 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
+# training outputs on the cluster (results/ keeps only files added on purpose)
+results_*/
+logs/
+*.o[0-9]*

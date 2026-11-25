@@ -12,10 +12,10 @@ import src  # noqa: F401
 
 import numpy as np
 
-from src.env import DEFAULT_ENV, make_env
+from src.env import ACTION_NAMES, DEFAULT_ENV, make_env
 
 
-def run_episodes(env, choose_action, episodes, record=0):
+def run_episodes(env, choose_action, episodes, record=0, action_counts=None):
     """Drive `episodes` episodes. Returns per-episode stats and video frames."""
     stats, frames = [], []
     for ep in range(episodes):
@@ -25,6 +25,8 @@ def run_episodes(env, choose_action, episodes, record=0):
             if ep < record:
                 frames.append(env.render())
             action = choose_action(obs)
+            if action_counts is not None:
+                action_counts[int(action)] = action_counts.get(int(action), 0) + 1
             obs, reward, terminated, truncated, info = env.step(action)
             total += reward
             speeds.append(info.get("speed", np.nan))
@@ -71,7 +73,8 @@ def main():
         # deterministic=True: always take the best action (no random exploring)
         choose_action = lambda obs: int(model.predict(obs, deterministic=True)[0])
 
-    stats, frames = run_episodes(env, choose_action, args.episodes, record)
+    action_counts = {}
+    stats, frames = run_episodes(env, choose_action, args.episodes, record, action_counts)
     env.close()
 
     rewards = [s["reward"] for s in stats]
@@ -79,6 +82,12 @@ def main():
     speed = np.nanmean([s["speed"] for s in stats])
     print(f"\n{label} over {args.episodes} episodes: mean reward {np.mean(rewards):.2f}, "
           f"crash rate {crash_rate:.0f}%, avg speed {speed:.1f} m/s")
+
+    # Which actions did it use? (e.g. a driver that only ever brakes shows SLOWER ~100%)
+    total = sum(action_counts.values()) or 1
+    usage = ", ".join(f"{ACTION_NAMES[a]} {100 * n / total:.0f}%"
+                      for a, n in sorted(action_counts.items(), key=lambda kv: -kv[1]))
+    print(f"Actions used: {usage}")
 
     if frames:
         import imageio
