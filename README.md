@@ -14,7 +14,7 @@ flowchart LR
 
 ## The problem
 
-The green car (ours) drives on a 4-lane highway with other vehicles.
+The green car (ours) drives on a 3-lane highway (highway-fast-v0) with other vehicles.
 
 | | |
 |---|---|
