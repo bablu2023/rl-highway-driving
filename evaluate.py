@@ -48,15 +48,18 @@ def main():
     args = p.parse_args()
 
     # Use the same environment settings the agent was trained with (saved by train.py)
-    config = None
+    config, obs_type = None, "kinematics"
     cfg_path = os.path.join(os.path.dirname(args.model) or ".", "env_config.json")
     if os.path.exists(cfg_path):
         with open(cfg_path) as f:
-            config = json.load(f).get("config") or None
-    print("Environment config:", config or "default")
+            saved = json.load(f)
+        config = saved.get("config") or None
+        obs_type = saved.get("obs", "kinematics")
+    print(f"Observation: {obs_type} | environment config: {config or 'default'}")
 
     record = 0 if args.no_video else args.video_episodes
-    env = make_env(args.env, render_mode="rgb_array" if record else None, config=config)
+    env = make_env(args.env, render_mode="rgb_array" if record else None,
+                   config=config, obs=obs_type)
 
     if args.random:
         label = "Random driver"

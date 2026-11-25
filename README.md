@@ -43,11 +43,13 @@ rl-highway-driving/
 ├── requirements.txt
 ├── train.py                  # train the agent, save model + reward plot
 ├── evaluate.py               # test (trained or random), crash rate, video
+├── show_camera.py            # picture of what the camera-based agent sees
 ├── src/
 │   ├── __init__.py           # package marker (+ rendering note)
 │   └── env.py                # driving environment
 ├── notebooks/
-│   └── run_in_colab.ipynb    # run everything in Google Colab
+│   ├── run_in_colab.ipynb    # run everything in Google Colab
+│   └── camera_in_colab.ipynb # train the camera-based (CNN) agent
 └── results/                  # model, plots, videos are saved here
 ```
 
@@ -88,6 +90,28 @@ Tested on 20 episodes with fixed seeds (random driver: 10 episodes).
 ![Trained agent driving](results/agent.gif)
 
 ![Training rewards](results/training_rewards.png)
+
+## Driving from camera images
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/bablu2023/rl-highway-driving/blob/main/notebooks/camera_in_colab.ipynb)
+
+Real self-driving cars don't get a neat table of other cars' positions; they see the world through cameras.
+With `--obs camera` the agent instead receives **grayscale top-view camera images** (128 × 64 pixels,
+the last 4 frames stacked so it can perceive motion), and the neural network becomes a
+**convolutional neural network (CNN)** that has to learn by itself to recognise cars and lanes in pixels.
+
+```bash
+python show_camera.py                                   # save results/camera_view.png
+python train.py --obs camera --steps 50000 --gamma 0.95 --collision-reward -3 --out results_camera
+python evaluate.py --model results_camera/dqn_highway.zip --episodes 20
+```
+
+Use a GPU (Colab: Runtime → Change runtime type → T4 GPU); image-based training is much slower than the table version.
+
+| Agent (50,000 steps, γ = 0.95, collision reward −3) | Sees | Crash rate | Avg speed (m/s) |
+|---|---|---|---|
+| DQN + MLP | 5 × 5 table of positions | 0% | 21.1 |
+| DQN + CNN | camera images | _fill in_ | _fill in_ |
 
 ## Ideas to extend
 
