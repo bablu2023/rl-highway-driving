@@ -44,7 +44,7 @@ rl-highway-driving/
 ├── train.py                  # train the agent, save model + reward plot
 ├── evaluate.py               # test (trained or random), crash rate, video
 ├── src/
-│   ├── __init__.py           # headless rendering setup (for Colab)
+│   ├── __init__.py           # package marker (+ rendering note)
 │   └── env.py                # driving environment
 ├── notebooks/
 │   └── run_in_colab.ipynb    # run everything in Google Colab
@@ -69,12 +69,23 @@ python evaluate.py --episodes 20                      # trained driver + results
 
 ## Results
 
-After training, fill in your numbers:
+Tested on 20 episodes with fixed seeds (random driver: 10 episodes).
 
-| Driver | Mean reward | Crash rate | Avg speed (m/s) |
-|---|---|---|---|
-| Random | _fill in_ | _fill in_ | _fill in_ |
-| DQN (20,000 steps) | _fill in_ | _fill in_ | _fill in_ |
+| Driver | Training | Crash rate | Avg speed (m/s) | Mean reward* |
+|---|---|---|---|---|
+| Random | none | 90% | 24.8 | 7.01 |
+| DQN | 20,000 steps, γ = 0.8 | 30% | 24.7 | 21.29 |
+| DQN | 50,000 steps, γ = 0.8 | 40% | 27.1 | 21.95 |
+| **DQN (safe)** | **50,000 steps, γ = 0.95, collision reward −3** | **0%** | **21.1** | 26.76 |
+
+*Mean rewards are only comparable between runs with the same reward settings.
+
+**What we learned:**
+- With γ = 0.8 the agent looks only ~5 steps ahead, so it barely "sees" that a crash ends the episode and loses all future reward. Training longer made it faster but also crash more.
+- Raising γ to 0.95 (looks ~20 steps ahead) and tripling the crash penalty produced a careful driver with **zero crashes** in 20 test episodes, at the cost of lower speed: the classic **safety vs. speed trade-off** in autonomous driving.
+- Inspecting its Q-values shows why: highway-env only rewards speed above 20 m/s, and the safe agent judged that small bonus not worth the crash risk, so it settles in the right lane near 20 m/s.
+
+![Trained agent driving](results/agent.gif)
 
 ![Training rewards](results/training_rewards.png)
 
