@@ -1,0 +1,9 @@
+{
+  "env": "highway-fast-v0",
+  "obs": "kinematics",
+  "config": {
+    "collision_reward": -3.0,
+    "high_speed_reward": 1.0
+  },
+  "gamma": 0.95
+}

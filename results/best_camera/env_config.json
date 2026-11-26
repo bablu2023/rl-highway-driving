@@ -1,0 +1,9 @@
+{
+  "env": "highway-fast-v0",
+  "obs": "camera",
+  "config": {
+    "collision_reward": -3.0,
+    "high_speed_reward": 2.0
+  },
+  "gamma": 0.95
+}
