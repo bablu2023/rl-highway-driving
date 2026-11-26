@@ -4,6 +4,7 @@
     python train.py --steps 50000    # longer training = better driving
     python train.py --steps 50000 --gamma 0.95 --collision-reward -3   # safer driving
     python train.py --obs camera --steps 50000 --gamma 0.95 --collision-reward -3 --out results_camera
+    python train.py --obs camera --steps 200000 --gamma 0.95 --collision-reward -3 --high-speed-reward 1.0   # speed worth more
 
 Every --eval-freq steps (default 10,000) the agent is tested and the best version is kept
 as <out>/best_model.zip, next to the final model <out>/dqn_highway.zip.
@@ -74,6 +75,8 @@ def main():
                    help="discount factor: higher = cares more about the future (staying alive)")
     p.add_argument("--collision-reward", type=float, default=None,
                    help="crash penalty, e.g. -3 (highway-env default is -1)")
+    p.add_argument("--high-speed-reward", type=float, default=None,
+                   help="reward for driving fast, e.g. 1.0 (highway-env default is 0.4)")
     p.add_argument("--obs", choices=OBSERVATION_TYPES, default="kinematics",
                    help="what the agent sees: table of positions, or camera images")
     p.add_argument("--eval-freq", type=int, default=10000,
@@ -83,10 +86,16 @@ def main():
     args = p.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
-    # Optional changes to the environment's reward; saved so evaluate.py uses the same setup
+    # Optional changes to the environment's reward; saved so evaluate.py uses the same setup.
+    # highway-env scales each step's reward to 0..1 between collision_reward and
+    # (high_speed_reward + right_lane_reward). With a big crash penalty and the default
+    # high_speed_reward, driving slowly scores almost as much as driving fast, so the agent
+    # can learn to just crawl. Raising --high-speed-reward makes speed worth more.
     config = {}
     if args.collision_reward is not None:
         config["collision_reward"] = args.collision_reward
+    if args.high_speed_reward is not None:
+        config["high_speed_reward"] = args.high_speed_reward
     with open(os.path.join(args.out, "env_config.json"), "w") as f:
         json.dump({"env": args.env, "obs": args.obs, "config": config, "gamma": args.gamma},
                   f, indent=2)

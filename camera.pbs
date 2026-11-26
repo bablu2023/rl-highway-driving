@@ -5,15 +5,19 @@
 #PBS -j oe
 #PBS -q workq
 
-# Train + evaluate the camera-based (CNN) DQN driver on a PBS compute node.
+# Train + evaluate a DQN driver (camera/CNN by default) on a PBS compute node.
 # Submit from the repo folder:   qsub -v STEPS=100000,GPU=MIG-<uuid> camera.pbs   (GPU is optional; list slices with: nvidia-smi -L)
 # Re-test an existing run without training:   qsub -v STEPS=100000,EVAL_ONLY=1 camera.pbs
-# Live log: logs/results_camera_<STEPS>[_<TAG>].log  (PBS also writes rl_camera.o<jobid>)
+# Reward experiment:   qsub -v STEPS=200000,HSR=1.0 camera.pbs      (HSR = high_speed_reward)
+# Table-based agent:   qsub -v OBS=kinematics,STEPS=50000,HSR=1.0 camera.pbs
+# Live log: logs/results_<OBS>_<STEPS>[_hsr<HSR>][_<TAG>].log  (PBS also writes rl_camera.o<jobid>)
 
 cd "$PBS_O_WORKDIR"                       # the folder you ran qsub from
 STEPS=${STEPS:-100000}                    # training steps (set with: qsub -v STEPS=...)
+OBS=${OBS:-camera}                        # what the agent sees: camera or kinematics
+HSR=${HSR:-}                              # optional high_speed_reward, e.g. 1.0 (default 0.4)
 TAG=${TAG:-}                              # optional run name, e.g. qsub -v STEPS=200000,TAG=v2
-OUT=results_camera_${STEPS}${TAG:+_$TAG}
+OUT=results_${OBS}_${STEPS}${HSR:+_hsr$HSR}${TAG:+_$TAG}
 mkdir -p logs
 LOG="logs/$(basename "$OUT")${EVAL_ONLY:+_eval}.log"
 exec > "$LOG" 2>&1                        # live log, e.g. logs/results_camera_200000_v2.log
@@ -25,12 +29,13 @@ if [ -n "$GPU" ]; then                    # optional: pick a GPU/MIG slice, e.g.
     export CUDA_VISIBLE_DEVICES="$GPU"
 fi
 
-echo "Job ${PBS_JOBID} on $(hostname) | STEPS=${STEPS} | CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-not set}"
+echo "Job ${PBS_JOBID} on $(hostname) | OBS=${OBS} STEPS=${STEPS} HSR=${HSR:-default} | CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-not set}"
 nvidia-smi -L
 python -c "import torch; print('torch sees GPU:', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
 
 if [ "${EVAL_ONLY:-0}" != "1" ]; then          # EVAL_ONLY=1: skip training, just re-test existing models
-    python train.py --obs camera --steps "$STEPS" --gamma 0.95 --collision-reward -3 --out "$OUT"
+    python train.py --obs "$OBS" --steps "$STEPS" --gamma 0.95 --collision-reward -3 \
+        ${HSR:+--high-speed-reward "$HSR"} --out "$OUT"
 fi
 echo "=== FINAL model (end of training) ==="
 python evaluate.py --model "$OUT/dqn_highway.zip" --episodes 20 --video "$OUT/agent.mp4"
